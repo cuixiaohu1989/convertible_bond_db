@@ -1,6 +1,8 @@
 {
-  "last_update": null,
-  "last_source": null,
-  "available_dates": [],
-  "total_days": 0
+  "last_update": "2026-09-15T15:03:53+00:00",
+  "last_source": "eastmoney",
+  "available_dates": [
+    "2026-09-15"
+  ],
+  "total_days": 1
 }
