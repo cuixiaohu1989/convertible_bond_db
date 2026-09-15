@@ -48,6 +48,9 @@ HEADERS = {
     "Accept": "application/json, text/plain, */*",
 }
 
+# 东财公开 ut 令牌（与 AKShare bond_cov_comparison 一致；缺它部分网关返回 data:null）
+UT = "bd1d9ddb04089700cf9c27f6f7426281"
+
 TIMEOUT = 15
 MAX_RETRY = 3
 
@@ -106,30 +109,46 @@ def _map_row(item):
     return rec
 
 
-def fetch_eastmoney():
-    """抓取东方财富可转债比价表全量。失败抛异常（由调用方重试/兜底）。"""
-    params = {
+def _params(variant):
+    """三组参数变体：0=标准(带ut) 1=AKShare同款pz 2=去掉fltt/invt。"""
+    p = {
         "pn": 1,
         "pz": 5000,
         "po": 1,          # 按 fid 降序（涨跌幅高→低）
         "np": 1,
+        "ut": UT,
         "fltt": 2,        # 数值字段返回可读浮点
         "invt": 2,
         "fid": "f3",      # 涨跌幅
         "fs": FS,
         "fields": ",".join(FIELDS),
     }
+    if variant == 1:
+        p["pz"] = 50000
+    elif variant == 2:
+        p.pop("fltt", None)
+        p.pop("invt", None)
+    return p
+
+
+def fetch_eastmoney():
+    """抓取东方财富可转债比价表全量。失败抛异常（由调用方重试/兜底）。"""
     last_err = None
     for attempt in range(1, MAX_RETRY + 1):
         try:
-            info(f"东财请求 第{attempt}次 attempt", "EM")
+            params = _params(attempt - 1)
+            info(f"东财请求 第{attempt}次 attempt(变体{attempt - 1})", "EM")
             resp = requests.get(URL, params=params, headers=HEADERS,
                                 timeout=TIMEOUT)
             resp.raise_for_status()
             payload = resp.json()
-            diff = payload.get("data", {}).get("diff")
+            # data 可能是 null（缺 ut / 网关拦截），必须 or {} 兜住
+            data = payload.get("data") or {}
+            diff = data.get("diff") or []
             if not diff:
-                raise ValueError("东财返回 data.diff 为空")
+                snippet = resp.text[:200].replace("\n", " ")
+                raise ValueError(
+                    f"data.diff 为空 rc={payload.get('rc')} body={snippet}")
             rows = [_map_row(it) for it in diff]
             # 接口已按涨跌幅降序(po=1)，代码兜底再排一次
             rows.sort(key=_pct_desc_key, reverse=True)

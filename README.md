@@ -15,7 +15,7 @@ GitHub Actions (UTC 09:00 周一至周五 + 手动刷新)
 
 - 主源：东方财富可转债比价表 `push2.eastmoney.com/api/qt/clist/get`（`fs=b:MK0354`）
 - 兜底：腾讯行情 `qt.gtimg.cn`（主源失败时使用，仅基础价格字段）
-- 手动刷新密码：`6690`
+- 手动刷新：前端按钮跳转 Actions 页（无 token 方案）
 
 ## 目录
 
@@ -47,11 +47,10 @@ python scripts/build_db.py        # 生成 docs/data/<date>.json + docs/index.js
 ## 部署到 GitHub Pages
 
 1. 新建公开仓库 `convertible_bond_db`，推送本目录。
-2. 仓库 Settings → Pages → Source 选 `main` 分支、`/docs` 目录。
-3. Settings → Secrets → 新增 `GH_TOKEN`（PAT，需 `repo` + `workflow` 权限，scope 最小化）。
-4. 在 `docs/app.js` 顶部 `CONFIG` 填入 `OWNER`、`REPO`、`GH_TOKEN`（PAT）。
-5. Actions 页手动 `Run workflow` 触发一次首跑，验证端到端。
-6. 站点地址：`https://<OWNER>.github.io/convertible_bond_db/`
+2. 仓库 Settings → Pages → Source 选 `main` 分支、`/docs` 目录（不要选 `(root)`，否则站点显示 README）。
+3. 无需配置任何 secret（workflow 使用默认 `GITHUB_TOKEN`）。
+4. Actions 页手动 `Run workflow` 触发一次首跑，验证端到端。
+5. 站点地址：`https://<OWNER>.github.io/convertible_bond_db/`
 
 ## 字段说明
 
@@ -64,5 +63,5 @@ python scripts/build_db.py        # 生成 docs/data/<date>.json + docs/index.js
 
 ## 安全提示
 
-前端 `app.js` 绝不硬编码 `GH_TOKEN`，仅从 gitignored 的 `docs/config.js` 读取（本机私用，不进仓库）。仓库 Secrets 里的 `GH_TOKEN` 由 GitHub 服务端注入 workflow，不落库。请使用 scope 最小、可随时吊销的令牌。
-手动刷新密码 `6690` 仅作简易闸门，并非强鉴权。
+前端不含也不需要任何 PAT：手动刷新按钮直接跳转 GitHub Actions 页面，由用户点击 Run workflow（OWNER/REPO 从 Pages 域名自动推断）。workflow 内部使用 GitHub 默认 `GITHUB_TOKEN`（由服务端注入，不落库）。
+采集失败时，失败原因会写入仓库根的 `results.json`（`errors` 字段），无需查 Actions 日志即可定位。

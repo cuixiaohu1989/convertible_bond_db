@@ -21,6 +21,7 @@ def main():
 
     result = None
     source = "failed"
+    errors = {}  # 各源失败原因，写入 results.json 便于事后排查（无需 Actions 日志权限）
 
     # 1) 主源：东方财富
     try:
@@ -34,6 +35,7 @@ def main():
         else:
             raise ValueError(f"东财返回不足全量（{len(res.get('data', [])) if res else 0} 条）")
     except Exception as e:
+        errors["eastmoney"] = f"{type(e).__name__}: {e}"
         warn(f"东财失败: {e}，尝试腾讯兜底", "MAIN")
 
     # 2) 兜底源：腾讯
@@ -41,19 +43,22 @@ def main():
         try:
             universe = load_universe()
             if not universe:
-                raise ValueError("bond_universe.json 为空，无法兜底")
+                raise ValueError("bond_universe.json 为空，无法兜底（词典依赖东财首次成功）")
             res = fetch_tencent(universe)
             res["source"] = "tencent_fallback"
             result = res
             source = "tencent_fallback"
             info(f"兜底腾讯成功：{len(res['data'])} 条", "MAIN")
         except Exception as e2:
+            errors["tencent"] = f"{type(e2).__name__}: {e2}"
             error(f"双源皆失败: {e2}", "MAIN")
             result = {"source": "failed", "data": [], "date": today}
 
     # 3) 补充标记
     result["date"] = today
     result["trading_day"] = trading_day
+    if errors:
+        result["errors"] = errors
 
     with open("results.json", "w", encoding="utf-8") as f:
         json.dump(result, f, ensure_ascii=False, indent=2)

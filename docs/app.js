@@ -1,15 +1,11 @@
-/* 可转债数据库前端逻辑：日期查询 + 搜索 + 排序 + 分页 + 手动刷新(6690) + 来源标记 */
+/* 可转债数据库前端逻辑：日期查询 + 搜索 + 排序 + 分页 + 手动刷新(跳转Actions) + 来源标记 */
 
 // ===== 配置 =====
-// 安全红线：GH_TOKEN（PAT）绝不能硬编码进本文件再 push 到公开仓库（全网可见 = 账号可被接管）。
-// 正确做法：在同目录新建 docs/config.js（已被 .gitignore 忽略，不进仓库），内容如下：
-//   window.__CB_CONFIG__ = { OWNER:"你的用户名", REPO:"convertible_bond_db", GH_TOKEN:"ghp_xxx", REFRESH_PASSWORD:"6690" };
-// 该文件仅本机有效；不创建时手动刷新功能自动降级（按钮提示未配置），每日自动定时抓取不受影响。
+// 手动刷新不需要任何 token：按钮直接打开 GitHub Actions 页面由用户点击 Run workflow。
+// OWNER/REPO 从 Pages 域名自动推断（<owner>.github.io/<repo>），无需配置。
 let CONFIG = {
   OWNER: "你的GitHub用户名",
-  REPO: "convertible_bond_db",
-  GH_TOKEN: "",
-  REFRESH_PASSWORD: "6690"
+  REPO: "convertible_bond_db"
 };
 try { if (window.__CB_CONFIG__) CONFIG = Object.assign({}, CONFIG, window.__CB_CONFIG__); } catch (e) {}
 
@@ -221,6 +217,9 @@ async function loadIndex() {
   const dates = STATE.index.available_dates || [];
   if (dates.length === 0) {
     sel.innerHTML = '<option value="">暂无数据</option>';
+    const hint = $("hint");
+    hint.style.display = "block";
+    hint.textContent = "暂无任何交易日数据：采集可能尚未成功运行过，请点右上角「手动刷新」跳转 GitHub Actions 手动运行一次。";
     return;
   }
   dates.slice().reverse().forEach((d) => {
@@ -230,40 +229,29 @@ async function loadIndex() {
   });
   sel.value = dates[dates.length - 1]; // 默认最新
   const lu = STATE.index.last_update || "—";
-  const ls = STATE.index.last_source === "tencent_fallback" ? "腾讯兜底" : "东方财富";
+  const lsMap = { eastmoney: "东方财富", tencent_fallback: "腾讯兜底" };
+  const ls = lsMap[STATE.index.last_source] || "暂无";
   sel.title = `最近更新：${lu} · 来源：${ls} · 共 ${STATE.index.total_days} 个交易日`;
   loadDay(sel.value);
 }
 
-// 手动刷新：密码 6690 鉴权 → 触发 workflow_dispatch
-function openModal() { $("modalMask").style.display = "flex"; $("pwInput").value = ""; $("pwInput").focus(); }
-function closeModal() { $("modalMask").style.display = "none"; }
-
-async function triggerRefresh() {
-  const pw = $("pwInput").value;
-  if (pw !== CONFIG.REFRESH_PASSWORD) { toast("密码错误"); return; }
-  closeModal();
-  if (!CONFIG.GH_TOKEN || CONFIG.GH_TOKEN.startsWith("ghp_xxxx")) {
-    toast("请在 app.js 配置 GH_TOKEN"); return;
-  }
-  toast("正在触发采集…");
+// 手动刷新：跳转 GitHub Actions 页面点 Run workflow（浏览器直连 API 需在公开页面暴露 PAT，不安全，已弃用）
+function inferOwnerRepo() {
   try {
-    const url = `https://api.github.com/repos/${CONFIG.OWNER}/${CONFIG.REPO}/actions/workflows/crawl.yml/dispatches`;
-    const r = await fetch(url, {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${CONFIG.GH_TOKEN}`,
-        "Accept": "application/vnd.github+json",
-        "Content-Type": "application/json",
-        "X-GitHub-Api-Version": "2022-11-28",
-      },
-      body: JSON.stringify({ ref: "main", inputs: { password: pw } }),
-    });
-    if (r.status === 204) toast("已触发，稍后刷新页面查看");
-    else toast("触发失败：HTTP " + r.status);
-  } catch (e) {
-    toast("触发异常：" + e.message);
-  }
+    const h = location.hostname;            // cuixiaohu1989.github.io
+    const seg = location.pathname.split("/").filter(Boolean); // ["convertible_bond_db"]
+    if (h.endsWith(".github.io") && seg.length) {
+      return { owner: h.split(".")[0], repo: seg[0] };
+    }
+  } catch (e) {}
+  return { owner: CONFIG.OWNER, repo: CONFIG.REPO };
+}
+
+function triggerRefresh() {
+  const { owner, repo } = inferOwnerRepo();
+  const url = `https://github.com/${owner}/${repo}/actions/workflows/crawl.yml`;
+  toast("已打开 GitHub Actions 页，请点右侧 Run workflow");
+  window.open(url, "_blank");
 }
 
 // 事件绑定
@@ -271,9 +259,6 @@ $("queryBtn").onclick = () => loadDay($("dateSel").value);
 $("dateSel").onchange = () => loadDay($("dateSel").value);
 $("pageSize").onchange = () => { STATE.pageSize = Number($("pageSize").value); renderPage(); };
 $("search").oninput = () => { STATE.search = $("search").value; applyAndRender(); };
-$("refreshBtn").onclick = openModal;
-$("pwCancel").onclick = closeModal;
-$("pwOk").onclick = triggerRefresh;
-$("modalMask").onclick = (e) => { if (e.target === $("modalMask")) closeModal(); };
+$("refreshBtn").onclick = triggerRefresh;
 
 loadIndex();
