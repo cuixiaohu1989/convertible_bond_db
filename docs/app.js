@@ -196,13 +196,21 @@ async function loadDay(date) {
 }
 
 function showSource() {
-  const tag = STATE.source === "tencent_fallback"
-    ? '<span class="source-tag fallback">腾讯兜底（字段不全）</span>'
-    : '<span class="source-tag">东方财富</span>';
+  let tag;
+  if (STATE.source === "tencent_fallback") {
+    tag = '<span class="source-tag fallback">腾讯兜底（字段不全）</span>';
+  } else if (STATE.source === "kzz91cm") {
+    tag = '<span class="source-tag">转债罗盘（历史补采）</span>';
+  } else {
+    tag = '<span class="source-tag">东方财富</span>';
+  }
   const hint = $("hint");
   if (STATE.source === "tencent_fallback") {
     hint.style.display = "block";
     hint.textContent = "当日主源（东方财富）采集失败，已用腾讯行情兜底：仅含价格/涨跌幅等基础字段，转股溢价率、纯债价值等比价字段显示为「—」。";
+  } else if (STATE.source === "kzz91cm") {
+    hint.style.display = "block";
+    hint.textContent = "该日数据为历史补采（来源：转债罗盘 kzz.91cm.cn），含代码/名称/现价/涨跌幅/成交额/转股溢价率等字段，转股价值等少数字段缺失显示「—」。";
   } else {
     hint.style.display = "none";
   }
