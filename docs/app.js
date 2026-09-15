@@ -1,4 +1,4 @@
-/* 可转债数据库前端逻辑：日期查询 + 搜索 + 排序 + 分页 + 手动刷新(跳转Actions) + 来源标记 */
+/* 可转债数据库前端逻辑：日历选日期 + 搜索 + 排序 + 分页 + CSV导出 + 手动刷新(跳转Actions) + 来源标记 */
 
 // ===== 配置 =====
 // 手动刷新不需要任何 token：按钮直接打开 GitHub Actions 页面由用户点击 Run workflow。
@@ -220,27 +220,149 @@ function showSource() {
 async function loadIndex() {
   const resp = await fetch("index.json", { cache: "no-store" });
   STATE.index = await resp.json();
-  const sel = $("dateSel");
-  sel.innerHTML = "";
   const dates = STATE.index.available_dates || [];
   if (dates.length === 0) {
-    sel.innerHTML = '<option value="">暂无数据</option>';
+    $("dateInput").value = "";
     const hint = $("hint");
     hint.style.display = "block";
     hint.textContent = "暂无任何交易日数据：采集可能尚未成功运行过，请点右上角「手动刷新」跳转 GitHub Actions 手动运行一次。";
     return;
   }
-  dates.slice().reverse().forEach((d) => {
-    const o = document.createElement("option");
-    o.value = d; o.textContent = d;
-    sel.appendChild(o);
-  });
-  sel.value = dates[dates.length - 1]; // 默认最新
+  STATE.dates = dates.slice();               // 升序
+  AVAIL.clear();
+  dates.forEach((d) => AVAIL.add(d));
+  const latest = dates[dates.length - 1];
+  setDate(latest, { load: true });
   const lu = STATE.index.last_update || "—";
-  const lsMap = { eastmoney: "东方财富", tencent_fallback: "腾讯兜底" };
+  const lsMap = { eastmoney: "东方财富", tencent_fallback: "腾讯兜底", kzz91cm: "转债罗盘" };
   const ls = lsMap[STATE.index.last_source] || "暂无";
-  sel.title = `最近更新：${lu} · 来源：${ls} · 共 ${STATE.index.total_days} 个交易日`;
-  loadDay(sel.value);
+  $("dateInput").title = `最近更新：${lu} · 来源：${ls} · 共 ${STATE.index.total_days} 个交易日`;
+}
+
+// ===== 日历日期选择 =====
+const AVAIL = new Set();        // 有数据的日期 yyyy-mm-dd
+const LATEST = () => (STATE.dates && STATE.dates.length) ? STATE.dates[STATE.dates.length - 1] : null;
+let calY, calM;                 // 日历当前显示的 年 / 月(0-11)
+
+function setDate(d, opts = {}) {
+  STATE.date = d;
+  $("dateInput").value = d;
+  if (opts.load) loadDay(d);
+}
+
+function pad2(n) { return String(n).padStart(2, "0"); }
+
+function buildCalHead() {
+  const wd = $("calWd");
+  wd.innerHTML = "";
+  ["一", "二", "三", "四", "五", "六", "日"].forEach((x, i) => {
+    const s = document.createElement("span");
+    s.className = "wd" + (i >= 5 ? " weekend" : "");
+    s.textContent = x;
+    wd.appendChild(s);
+  });
+  $("calTitle").textContent = `${calY}年${pad2(calM + 1)}月`;
+}
+
+function renderCal() {
+  buildCalHead();
+  const grid = $("calGrid");
+  grid.innerHTML = "";
+  const sel = STATE.date;
+  const todayStr = (() => {
+    const t = new Date();
+    return `${t.getFullYear()}-${pad2(t.getMonth() + 1)}-${pad2(t.getDate())}`;
+  })();
+  const first = new Date(calY, calM, 1);
+  let lead = first.getDay() - 1;          // 周一为第一列
+  if (lead < 0) lead = 6;
+  const daysInMonth = new Date(calY, calM + 1, 0).getDate();
+  for (let i = 0; i < lead; i++) grid.appendChild(document.createElement("span"));
+  for (let d = 1; d <= daysInMonth; d++) {
+    const key = `${calY}-${pad2(calM + 1)}-${pad2(d)}`;
+    const el = document.createElement("div");
+    el.className = "cal-day";
+    el.textContent = d;
+    const dow = new Date(calY, calM, d).getDay();
+    if (dow === 0 || dow === 6) el.classList.add("weekend");
+    if (key === todayStr) el.classList.add("today");
+    if (key === sel) el.classList.add("sel");
+    if (!AVAIL.has(key)) {
+      el.classList.add("dim");
+      el.title = "该日无数据";
+    } else {
+      el.title = "查询 " + key;
+      el.onclick = () => {
+        setDate(key, { load: true });
+        closeCal();
+      };
+    }
+    grid.appendChild(el);
+  }
+  const n = AVAIL.size;
+  const foot = document.querySelector(".cal-empty");
+  if (foot) foot.remove();
+  const info = document.createElement("div");
+  info.className = "cal-empty";
+  info.textContent = `共 ${n} 个交易日有数据（深色为无数据日期）`;
+  $("cal").insertBefore(info, $("calWd"));
+}
+
+function openCal() {
+  if (!STATE.dates || !STATE.dates.length) { toast("暂无数据日期"); return; }
+  const base = STATE.date || LATEST();
+  const [y, m] = base.split("-").map(Number);
+  calY = y; calM = m - 1;
+  renderCal();
+  const mask = $("calMask");
+  mask.classList.add("open");
+  // 定位：贴着输入框下方，避免溢出视口
+  const r = $("dateInput").getBoundingClientRect();
+  const cal = $("cal");
+  cal.style.top = "0"; cal.style.left = "0";   // 先归零便于测量
+  const w = cal.offsetWidth || 288;
+  let left = r.left;
+  if (left + w > window.innerWidth - 8) left = window.innerWidth - w - 8;
+  cal.style.top = (r.bottom + 6) + "px";
+  cal.style.left = Math.max(8, left) + "px";
+}
+
+function closeCal() { $("calMask").classList.remove("open"); }
+
+function calShift(dMonth, dYear) {
+  calM += dMonth;
+  calY += dYear;
+  if (calM < 0) { calM = 11; calY--; }
+  if (calM > 11) { calM = 0; calY++; }
+  renderCal();
+}
+
+// ===== 导出 CSV（Excel 友好：UTF-8 BOM） =====
+function exportCsv() {
+  if (!STATE.filtered || !STATE.filtered.length) { toast("当前无数据可导出"); return; }
+  const esc = (s) => `"${String(s).replace(/"/g, '""')}"`;
+  const headers = COLUMNS.map((c) => c[0]);
+  const lines = [headers.map(esc).join(",")];
+  STATE.filtered.forEach((r) => {
+    const row = COLUMNS.map((c) => {
+      let v = r[c[1]];
+      if (v === null || v === undefined) return esc("");
+      if (c[2] === "wan") v = (v / 10000).toFixed(2);
+      else if (c[2] === "num" || c[2] === "pct") v = Number(v).toFixed(2);
+      return esc(v);
+    });
+    lines.push(row.join(","));
+  });
+  const csv = "\uFEFF" + lines.join("\r\n");
+  const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = `可转债_${STATE.date}.csv`;
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  URL.revokeObjectURL(a.href);
+  toast(`已导出 ${STATE.filtered.length} 条（含搜索/排序结果）`);
 }
 
 // 手动刷新：跳转 GitHub Actions 页面点 Run workflow（浏览器直连 API 需在公开页面暴露 PAT，不安全，已弃用）
@@ -263,10 +385,22 @@ function triggerRefresh() {
 }
 
 // 事件绑定
-$("queryBtn").onclick = () => loadDay($("dateSel").value);
-$("dateSel").onchange = () => loadDay($("dateSel").value);
+$("queryBtn").onclick = () => { if (STATE.date) loadDay(STATE.date); };
 $("pageSize").onchange = () => { STATE.pageSize = Number($("pageSize").value); renderPage(); };
 $("search").oninput = () => { STATE.search = $("search").value; applyAndRender(); };
 $("refreshBtn").onclick = triggerRefresh;
+$("exportBtn").onclick = exportCsv;
+$("dateInput").onclick = openCal;
+$("calMask").onclick = (e) => { if (e.target === $("calMask")) closeCal(); };
+$("calClose").onclick = closeCal;
+$("calPrevMonth").onclick = () => calShift(-1, 0);
+$("calNextMonth").onclick = () => calShift(1, 0);
+$("calPrevYear").onclick = () => calShift(0, -1);
+$("calNextYear").onclick = () => calShift(0, 1);
+$("calLatest").onclick = () => {
+  const d = LATEST();
+  if (d) { setDate(d, { load: true }); closeCal(); }
+};
+document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeCal(); });
 
 loadIndex();

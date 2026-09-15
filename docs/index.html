@@ -44,7 +44,53 @@
     font-size: 14px; background: var(--brand); color: #fff;
   }
   button.secondary { background: #eceef1; color: var(--text); }
+  button.export { background: #1e6fff; }
   button:hover { opacity: .9; }
+  /* ===== 日历日期选择 ===== */
+  .date-wrap { position: relative; }
+  #dateInput {
+    width: 150px; cursor: pointer; background: #fff;
+    padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+    font-size: 14px; color: var(--text);
+  }
+  .cal-mask {
+    position: fixed; inset: 0; z-index: 90; display: none;
+  }
+  .cal-mask.open { display: block; }
+  .cal {
+    position: absolute; width: 288px; background: #fff;
+    border: 1px solid var(--line); border-radius: 12px;
+    box-shadow: 0 8px 28px rgba(0,0,0,.14); padding: 12px;
+  }
+  .cal-head { display: flex; align-items: center; gap: 4px; margin-bottom: 8px; }
+  .cal-head .title { flex: 1; text-align: center; font-weight: 600; font-size: 14px; }
+  .cal-head button {
+    background: #f2f4f7; color: var(--text); border: none; border-radius: 6px;
+    width: 28px; height: 26px; padding: 0; font-size: 13px; line-height: 1;
+  }
+  .cal-grid { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
+  .cal-grid .wd {
+    text-align: center; color: var(--muted); font-size: 12px; padding: 4px 0;
+  }
+  .cal-grid .wd.weekend { color: var(--brand); }
+  .cal-day {
+    position: relative; text-align: center; padding: 6px 0; font-size: 13px;
+    border-radius: 6px; cursor: pointer; border: 1px solid transparent;
+  }
+  .cal-day:hover { background: #f5f7fa; }
+  .cal-day.dim { color: #c8ccd2; cursor: not-allowed; }
+  .cal-day.dim:hover { background: transparent; }
+  .cal-day.weekend:not(.dim) { color: var(--brand); }
+  .cal-day.today:not(.sel)::after {
+    content: ""; position: absolute; left: 50%; bottom: 1px; transform: translateX(-50%);
+    width: 4px; height: 4px; border-radius: 50%; background: var(--brand);
+  }
+  .cal-day.sel { background: var(--brand); color: #fff !important; }
+  .cal-foot { display: flex; justify-content: space-between; margin-top: 8px; }
+  .cal-foot button {
+    background: none; color: var(--brand); font-size: 12px; padding: 4px 6px;
+  }
+  .cal-empty { font-size: 12px; color: var(--muted); padding: 2px 4px 0; }
   .meta { color: var(--muted); font-size: 12px; margin-left: auto; }
   .meta b { color: var(--text); }
   .source-tag {
@@ -112,7 +158,26 @@
 <div class="wrap">
   <div class="toolbar">
     <label>日期</label>
-    <select id="dateSel"></select>
+    <span class="date-wrap">
+      <input type="text" id="dateInput" readonly placeholder="选择日期">
+      <div class="cal-mask" id="calMask">
+        <div class="cal" id="cal">
+          <div class="cal-head">
+            <button id="calPrevYear" title="上一年">«</button>
+            <button id="calPrevMonth" title="上一月">‹</button>
+            <span class="title" id="calTitle"></span>
+            <button id="calNextMonth" title="下一月">›</button>
+            <button id="calNextYear" title="下一年">»</button>
+          </div>
+          <div class="cal-grid" id="calWd"></div>
+          <div class="cal-grid" id="calGrid"></div>
+          <div class="cal-foot">
+            <button id="calLatest">跳到最新交易日</button>
+            <button id="calClose">关闭</button>
+          </div>
+        </div>
+      </div>
+    </span>
     <input type="text" id="search" placeholder="搜索 代码 / 名称 / 正股">
     <label>每页</label>
     <select id="pageSize">
@@ -121,6 +186,7 @@
       <option value="100">100</option>
     </select>
     <button id="queryBtn">查询</button>
+    <button class="export" id="exportBtn" title="导出当前查询结果为 CSV 表格">导出</button>
     <button class="secondary" id="refreshBtn">手动刷新</button>
     <span class="meta" id="meta"></span>
   </div>
