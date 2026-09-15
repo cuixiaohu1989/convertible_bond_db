@@ -38,7 +38,14 @@ STRING_FIELDS = {
     "f227": "list_date", "f241": "convert_start_date", "f242": "ipo_date",
 }
 
-URL = "https://push2.eastmoney.com/api/qt/clist/get"
+# 主机轮换：push2 对 GitHub Actions 等数据中心 IP 返回 502，
+# push2delay（延迟行情镜像）与数字 CDN 镜像是替代入口，字段与排序完全一致。
+HOSTS = [
+    "https://push2delay.eastmoney.com/api/qt/clist/get",
+    "https://82.push2.eastmoney.com/api/qt/clist/get",
+    "https://23.push2.eastmoney.com/api/qt/clist/get",
+    "https://push2.eastmoney.com/api/qt/clist/get",
+]
 HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
@@ -53,6 +60,9 @@ UT = "bd1d9ddb04089700cf9c27f6f7426281"
 
 TIMEOUT = 15
 MAX_RETRY = 3
+# push2delay 等主机单页上限约 100 条，需分页拉全
+PAGE_SIZE = 100
+MAX_PAGES = 12  # 全市场约 316 条 ≈ 4 页，留足余量
 
 
 def _to_float(v):
@@ -109,11 +119,11 @@ def _map_row(item):
     return rec
 
 
-def _params(variant):
-    """三组参数变体：0=标准(带ut) 1=AKShare同款pz 2=去掉fltt/invt。"""
-    p = {
-        "pn": 1,
-        "pz": 5000,
+def _params(page_no):
+    """单页请求参数：按涨跌幅降序。"""
+    return {
+        "pn": page_no,
+        "pz": PAGE_SIZE,
         "po": 1,          # 按 fid 降序（涨跌幅高→低）
         "np": 1,
         "ut": UT,
@@ -123,40 +133,61 @@ def _params(variant):
         "fs": FS,
         "fields": ",".join(FIELDS),
     }
-    if variant == 1:
-        p["pz"] = 50000
-    elif variant == 2:
-        p.pop("fltt", None)
-        p.pop("invt", None)
-    return p
+
+
+def _fetch_page(url, page_no):
+    """取单页，返回 (rows_mapped, total)。失败抛异常。"""
+    resp = requests.get(url, params=_params(page_no), headers=HEADERS,
+                        timeout=TIMEOUT)
+    resp.raise_for_status()
+    payload = resp.json()
+    # data 可能是 null（网关拦截），必须 or {} 兜住
+    data = payload.get("data") or {}
+    diff = data.get("diff") or []
+    if isinstance(diff, dict):  # 部分端点返回 dict{index: row}
+        diff = list(diff.values())
+    return diff, int(data.get("total") or 0)
 
 
 def fetch_eastmoney():
-    """抓取东方财富可转债比价表全量。失败抛异常（由调用方重试/兜底）。"""
+    """抓取东方财富可转债比价表全量（多主机轮换 + 分页）。失败抛异常。"""
     last_err = None
-    for attempt in range(1, MAX_RETRY + 1):
-        try:
-            params = _params(attempt - 1)
-            info(f"东财请求 第{attempt}次 attempt(变体{attempt - 1})", "EM")
-            resp = requests.get(URL, params=params, headers=HEADERS,
-                                timeout=TIMEOUT)
-            resp.raise_for_status()
-            payload = resp.json()
-            # data 可能是 null（缺 ut / 网关拦截），必须 or {} 兜住
-            data = payload.get("data") or {}
-            diff = data.get("diff") or []
-            if not diff:
-                snippet = resp.text[:200].replace("\n", " ")
-                raise ValueError(
-                    f"data.diff 为空 rc={payload.get('rc')} body={snippet}")
-            rows = [_map_row(it) for it in diff]
-            # 接口已按涨跌幅降序(po=1)，代码兜底再排一次
-            rows.sort(key=_pct_desc_key, reverse=True)
-            info(f"东财成功获取 {len(rows)} 条", "EM")
-            return {"data": rows}
-        except Exception as e:
-            last_err = e
-            warn(f"东财第{attempt}次失败: {e}", "EM")
-            if attempt < MAX_RETRY:
-                time.sleep(2 ** attempt)  # 指数退避
-    raise last_err if last_err else RuntimeError("东财未知失败")
+    for url in HOSTS:
+        host = url.split("/")[2]
+        for attempt in range(1, MAX_RETRY + 1):
+            try:
+                info(f"请求 {host} 第{attempt}次", "EM")
+                # 第 1 页探测总量
+                diff, total = _fetch_page(url, 1)
+                if not diff:
+                    snippet = ""
+                    raise ValueError(f"data.diff 为空 host={host}")
+                all_diff = list(diff)
+                pages = min(MAX_PAGES, max(1, -(-total // PAGE_SIZE)))
+                for pn in range(2, pages + 1):
+                    time.sleep(1.5)  # 防频率限制
+                    d2, _ = _fetch_page(url, pn)
+                    if not d2:
+                        break
+                    all_diff.extend(d2)
+                rows = [_map_row(it) for it in all_diff]
+                # 去重（分页边界偶有重叠）
+                seen = set()
+                uniq = []
+                for r in rows:
+                    if r["code"] not in seen:
+                        seen.add(r["code"])
+                        uniq.append(r)
+                rows = uniq
+                if len(rows) < 100:
+                    raise ValueError(f"记录数过少 {len(rows)}，疑似不完整")
+                # 接口已按涨跌幅降序(po=1)，代码兜底再排一次
+                rows.sort(key=_pct_desc_key, reverse=True)
+                info(f"{host} 成功获取 {len(rows)} 条（total={total}）", "EM")
+                return {"data": rows, "host": host}
+            except Exception as e:
+                last_err = e
+                warn(f"{host} 第{attempt}次失败: {e}", "EM")
+                if attempt < MAX_RETRY:
+                    time.sleep(2 ** attempt)  # 指数退避
+    raise last_err if last_err else RuntimeError("东财全部主机失败")
