@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>可转债信息数据库</title>
+<style>
+  :root {
+    --up: #d8392b;        /* 涨：红 */
+    --down: #1a9e54;      /* 跌：绿 */
+    --flat: #555;
+    --bg: #f7f8fa;
+    --card: #ffffff;
+    --line: #e6e8eb;
+    --brand: #c0201a;
+    --text: #1f2329;
+    --muted: #8a9099;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; font-family: -apple-system, "Segoe UI", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--text); font-size: 14px;
+  }
+  header {
+    background: linear-gradient(135deg, #c0201a, #e0433a);
+    color: #fff; padding: 18px 24px;
+  }
+  header h1 { margin: 0; font-size: 20px; letter-spacing: 1px; }
+  header .sub { margin-top: 4px; font-size: 12px; opacity: .9; }
+  .wrap { max-width: 1180px; margin: 0 auto; padding: 16px 20px 60px; }
+  .toolbar {
+    display: flex; flex-wrap: wrap; gap: 10px; align-items: center;
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; margin-bottom: 14px;
+  }
+  .toolbar label { color: var(--muted); font-size: 13px; }
+  select, input[type=text] {
+    padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px;
+    font-size: 14px; background: #fff; color: var(--text);
+  }
+  input[type=text] { min-width: 220px; }
+  button {
+    padding: 8px 16px; border: none; border-radius: 8px; cursor: pointer;
+    font-size: 14px; background: var(--brand); color: #fff;
+  }
+  button.secondary { background: #eceef1; color: var(--text); }
+  button:hover { opacity: .9; }
+  .meta { color: var(--muted); font-size: 12px; margin-left: auto; }
+  .meta b { color: var(--text); }
+  .source-tag {
+    display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 12px;
+    background: #e8f5ec; color: #1a9e54; margin-left: 6px;
+  }
+  .source-tag.fallback { background: #fff3e0; color: #c77700; }
+  .hint {
+    background: #fff8e6; border: 1px solid #ffe1a6; color: #8a6100;
+    padding: 8px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 12px;
+    display: none;
+  }
+  .table-card {
+    background: var(--card); border: 1px solid var(--line); border-radius: 10px;
+    overflow: auto;
+  }
+  table { border-collapse: collapse; width: 100%; min-width: 980px; }
+  th, td { padding: 9px 12px; text-align: right; white-space: nowrap; border-bottom: 1px solid var(--line); }
+  th:first-child, td:first-child,
+  th:nth-child(2), td:nth-child(2),
+  th:last-child, td:last-child { text-align: left; }
+  thead th {
+    position: sticky; top: 0; background: #fafbfc; color: var(--muted);
+    font-weight: 600; cursor: pointer; user-select: none; z-index: 1;
+  }
+  thead th .arrow { font-size: 10px; color: var(--brand); }
+  tbody tr:hover { background: #f5f7fa; }
+  .up { color: var(--up); }
+  .down { color: var(--down); }
+  .flat { color: var(--flat); }
+  .na { color: var(--muted); }
+  .pager {
+    display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    margin-top: 14px; justify-content: center;
+  }
+  .pager button { background: #fff; color: var(--text); border: 1px solid var(--line); padding: 6px 11px; }
+  .pager button.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+  .pager button:disabled { opacity: .4; cursor: not-allowed; }
+  .pager .info { color: var(--muted); font-size: 13px; margin: 0 8px; }
+  .empty { padding: 40px; text-align: center; color: var(--muted); }
+  .modal-mask {
+    position: fixed; inset: 0; background: rgba(0,0,0,.4); display: none;
+    align-items: center; justify-content: center; z-index: 99;
+  }
+  .modal {
+    background: #fff; border-radius: 12px; padding: 22px 24px; width: 320px;
+  }
+  .modal h3 { margin: 0 0 12px; font-size: 16px; }
+  .modal input { width: 100%; margin-bottom: 14px; }
+  .modal .row { display: flex; gap: 10px; justify-content: flex-end; }
+  .toast {
+    position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%);
+    background: #1f2329; color: #fff; padding: 10px 18px; border-radius: 8px;
+    font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 100;
+  }
+  .toast.show { opacity: .95; }
+</style>
+</head>
+<body>
+<header>
+  <h1>可转债信息数据库</h1>
+  <div class="sub">自建 · 每日收盘后自动采集 · 支持历史日期查询</div>
+</header>
+
+<div class="wrap">
+  <div class="toolbar">
+    <label>日期</label>
+    <select id="dateSel"></select>
+    <input type="text" id="search" placeholder="搜索 代码 / 名称 / 正股">
+    <label>每页</label>
+    <select id="pageSize">
+      <option value="20">20</option>
+      <option value="50">50</option>
+      <option value="100">100</option>
+    </select>
+    <button id="queryBtn">查询</button>
+    <button class="secondary" id="refreshBtn">手动刷新</button>
+    <span class="meta" id="meta"></span>
+  </div>
+
+  <div class="hint" id="hint"></div>
+
+  <div class="table-card">
+    <table>
+      <thead>
+        <tr id="headRow"></tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+  </div>
+
+  <div class="pager" id="pager"></div>
+</div>
+
+<div class="modal-mask" id="modalMask">
+  <div class="modal">
+    <h3>手动刷新鉴权</h3>
+    <input type="password" id="pwInput" placeholder="请输入刷新密码">
+    <div class="row">
+      <button class="secondary" id="pwCancel">取消</button>
+      <button id="pwOk">确认触发</button>
+    </div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script src="app.js"></script>
+</body>
+</html>

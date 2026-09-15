@@ -1,0 +1,15 @@
+# Python
+__pycache__/
+*.pyc
+.venv/
+
+# 本地敏感配置（请勿提交真实 PAT）
+docs/config.js
+config.local.js
+
+# 临时 token 交付文件（代跑时放置，用后即删，绝不提交）
+.ghtoken
+*.token
+
+# 系统
+.DS_Store

@@ -1,0 +1,41 @@
+name: crawl-convertible-bonds
+
+on:
+  schedule:
+    # 北京时间周一至周五 17:00（UTC 09:00）
+    - cron: "0 9 * * 1-5"
+  workflow_dispatch:
+    inputs:
+      password:
+        description: "手动刷新密码（前端校验用，与 app.js REFRESH_PASSWORD 一致）"
+        required: false
+
+jobs:
+  crawl:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        run: pip install -r requirements.txt
+
+      - name: Fetch convertible bond data
+        run: python main.py
+
+      - name: Build database
+        run: python scripts/build_db.py
+
+      - name: Commit and push
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          git add docs/ bond_universe.json results.json 2>/dev/null || true
+          git commit -m "data: $(date +%F)" || echo "no changes"
+          git push
