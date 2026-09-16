@@ -147,6 +147,8 @@
     font-size: 13px; opacity: 0; transition: opacity .3s; pointer-events: none; z-index: 100;
   }
   .toast.show { opacity: .95; }
+  .banner { display: none; padding: 8px 12px; border-radius: 8px; font-size: 13px; margin-bottom: 12px; }
+  .banner.warn { background: #fdeceb; border: 1px solid #f5b5b0; color: #b3261e; }
 </style>
 </head>
 <body>
@@ -192,6 +194,8 @@
   </div>
 
   <div class="hint" id="hint"></div>
+
+  <div class="banner" id="statusBanner"></div>
 
   <div class="table-card">
     <table>

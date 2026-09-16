@@ -237,6 +237,24 @@ async function loadIndex() {
   const lsMap = { eastmoney: "东方财富", tencent_fallback: "腾讯兜底", kzz91cm: "转债罗盘" };
   const ls = lsMap[STATE.index.last_source] || "暂无";
   $("dateInput").title = `最近更新：${lu} · 来源：${ls} · 共 ${STATE.index.total_days} 个交易日`;
+  loadStatus();
+}
+
+// 读取诊断状态：若今日数据未覆盖（且非休市），前端红字告警，第一时间暴露定时任务未跑
+async function loadStatus() {
+  try {
+    const r = await fetch("status.json", { cache: "no-store" });
+    if (!r.ok) return;
+    const s = await r.json();
+    const banner = $("statusBanner");
+    if (!banner) return;
+    if (s.today_covered === false && s.reason && s.reason !== "non_trading_day") {
+      banner.style.display = "block";
+      banner.textContent = `⚠ 今日（${s.today}）数据尚未采集（状态：${s.reason}）。点右上角「手动刷新」运行一次，或等 17:10 安全网补采。`;
+    } else {
+      banner.style.display = "none";
+    }
+  } catch (e) {}
 }
 
 // ===== 日历日期选择 =====

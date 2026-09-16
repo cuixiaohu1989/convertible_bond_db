@@ -84,6 +84,29 @@ def main():
     info(f"index.json 更新完成：total_days={index['total_days']}, "
          f"last_source={index['last_source']}", "BUILD")
 
+    # 诊断状态：今日是否已被覆盖（供前端缺失告警，便于第一时间发现定时任务未跑）
+    today_str = datetime.date.today().isoformat()
+    if not trading_day:
+        reason = "non_trading_day"
+    elif source == "failed":
+        reason = "source_failed"
+    elif not data:
+        reason = "empty_data"
+    else:
+        reason = "ok"
+    status = {
+        "generated_at": _now_iso(),
+        "today": today_str,
+        "today_covered": today_str in index["available_dates"],
+        "last_source": index.get("last_source"),
+        "last_update": index.get("last_update"),
+        "reason": reason,
+        "total_days": index["total_days"],
+    }
+    with open(os.path.join(docs_dir, "status.json"), "w", encoding="utf-8") as f:
+        json.dump(status, f, ensure_ascii=False, indent=2)
+    info(f"status.json 写出：today_covered={status['today_covered']}, reason={reason}", "BUILD")
+
 
 if __name__ == "__main__":
     main()

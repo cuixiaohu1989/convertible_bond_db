@@ -2,8 +2,10 @@ name: crawl-convertible-bonds
 
 on:
   schedule:
-    # 北京时间周一至周五 17:00（UTC 09:00）
-    - cron: "0 9 * * 1-5"
+    # 北京时间周一至周五 17:03（UTC 09:03）：避开整点拥堵，提高触发概率
+    - cron: "3 9 * * 1-5"
+    # 安全网：17:10（UTC 09:10）再跑一次，若首次被 GitHub 调度跳过则补采（幂等，无副作用）
+    - cron: "10 9 * * 1-5"
   workflow_dispatch:
     inputs:
       password:
