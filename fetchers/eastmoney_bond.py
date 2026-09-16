@@ -14,8 +14,8 @@ FIELDS = [
     "f2", "f3", "f4",  # price, change_pct, change_amt
     "f15", "f16", "f17", "f18",  # high, low, open, prev_close
     "f5", "f6",        # volume, amount
-    "f230", "f231", "f232", "f233",  # stock_price, stock_change_pct, stock_code, stock_name
-    "f234", "f235", "f236", "f237",  # convert_price, convert_value, premium_rate, bond_premium_rate
+    "f230", "f231", "f232", "f233",  # stock_price, stock_change_pct, stock_code, stock_flag(0/1)
+    "f234", "f235", "f236", "f237",  # stock_name, convert_value, premium_rate, bond_premium_rate
     "f229",            # pure_bond_value
     "f238", "f239", "f240",  # put_price, redeem_price, maturity_price
     "f227", "f241", "f242",  # list_date, convert_start_date, ipo_date
@@ -34,7 +34,7 @@ NUMERIC_FIELDS = {
 }
 STRING_FIELDS = {
     "f12": "code", "f14": "name",
-    "f232": "stock_code", "f233": "stock_name",
+    "f232": "stock_code", "f234": "stock_name",
     "f227": "list_date", "f241": "convert_start_date", "f242": "ipo_date",
 }
 
