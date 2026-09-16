@@ -24,7 +24,8 @@ const COLUMNS = [
   ["双低", "double_low", "num"],
   ["转股价值", "convert_value", "num"],
   ["纯债价值", "pure_bond_value", "num"],
-  ["正股", "stock_name", "text"],
+  ["正股代码", "stock_code", "text"],
+  ["正股名称", "stock_name", "text"],
 ];
 
 let STATE = {
