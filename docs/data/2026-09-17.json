@@ -1,4 +1,6 @@
 {
+  "date": "2026-09-17",
+  "source": "eastmoney",
   "data": [
     {
       "price": 397.0,
@@ -9450,9 +9452,5 @@
       "double_low": null,
       "market": "sh"
     }
-  ],
-  "host": "push2delay.eastmoney.com",
-  "source": "eastmoney",
-  "date": "2026-09-17",
-  "trading_day": true
+  ]
 }
