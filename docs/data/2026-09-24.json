@@ -1,4 +1,6 @@
 {
+  "date": "2026-09-24",
+  "source": "tencent_fallback",
   "data": [
     {
       "code": "111012",
@@ -8820,11 +8822,5 @@
       "ipo_date": null,
       "double_low": null
     }
-  ],
-  "source": "tencent_fallback",
-  "date": "2026-09-24",
-  "trading_day": true,
-  "errors": {
-    "eastmoney": "HTTPError: 502 Server Error: Bad Gateway for url: https://push2.eastmoney.com/api/qt/clist/get?pn=1&pz=100&po=1&np=1&ut=bd1d9ddb04089700cf9c27f6f7426281&fltt=2&invt=2&fid=f3&fs=b%3AMK0354&fields=f12%2Cf14%2Cf2%2Cf3%2Cf4%2Cf15%2Cf16%2Cf17%2Cf18%2Cf5%2Cf6%2Cf230%2Cf231%2Cf232%2Cf233%2Cf234%2Cf235%2Cf236%2Cf237%2Cf229%2Cf238%2Cf239%2Cf240%2Cf227%2Cf241%2Cf242"
-  }
+  ]
 }
