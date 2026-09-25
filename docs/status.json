@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-09-24T14:10:53+00:00",
-  "today": "2026-09-24",
-  "today_covered": true,
+  "generated_at": "2026-09-25T14:23:29+00:00",
+  "today": "2026-09-25",
+  "today_covered": false,
   "last_source": "tencent_fallback",
-  "last_update": "2026-09-24T14:10:53+00:00",
-  "reason": "ok",
+  "last_update": "2026-09-25T14:23:29+00:00",
+  "reason": "non_trading_day",
   "total_days": 28
 }
