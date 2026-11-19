@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-11-18T17:57:08+00:00",
-  "today": "2026-11-18",
+  "generated_at": "2026-11-19T17:56:04+00:00",
+  "today": "2026-11-19",
   "today_covered": true,
-  "last_source": "eastmoney",
-  "last_update": "2026-11-18T17:57:08+00:00",
+  "last_source": "tencent_fallback",
+  "last_update": "2026-11-19T17:56:04+00:00",
   "reason": "ok",
-  "total_days": 60
+  "total_days": 61
 }
